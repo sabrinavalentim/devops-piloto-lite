@@ -1,0 +1,35 @@
+name: ci-lite
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+        working-directory: app/hello-api-lite
+      - run: npm test -- --ci
+        working-directory: app/hello-api-lite
+      - name: Build Docker image
+        run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} app/hello-api-lite
+      - name: Login GHCR & Push
+        if: github.ref == 'refs/heads/main'
+        env: { GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }} }
+        run: |
+          echo $GHCR_TOKEN | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+      - name: (Optional) Deploy via SSH
+        if: github.ref == 'refs/heads/main' && secrets.SSH_HOST != ''
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            export IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }}
+            bash ~/deploy/deploy.sh "$IMAGE"
