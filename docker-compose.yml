@@ -1,0 +1,6 @@
+services:
+  hello:
+    build: ./app/hello-api-lite
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
